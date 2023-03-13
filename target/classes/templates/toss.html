@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Spring Boot Application</title>
+</head>
+<body>
+<h1>Select HEADS or TAILS</h1>
+<div class="container">
+    <hr/>
+
+    <form th:action="@{/toss1}" th:object="${form}" method="POST">
+
+        <input type="text" th:field="*{tossChoice}" class="form-control col-4 mb-4" placeholder="Enter team1 name" />
+
+        <button type="submit" class="btn btn-primary col-2">Submit</button>
+    </form>
+</div>
+</body>
+</html>
