@@ -21,6 +21,8 @@ public class T20Service implements CricketFormat {
    private PlayerStatsRepository playerStatsRepository;
    @Autowired
    private ScoreboardController scoreboardController;
+   @Autowired
+   private InningService inningService;
    private Team battingTeam;
    private Team bowlingTeam;
    private static final int OVERS = 20;
@@ -28,21 +30,15 @@ public class T20Service implements CricketFormat {
    public String matchStarts(Team team1, Team team2){
       battingTeam = team1;
       bowlingTeam = team2;
-      InningService firstInning = new InningService(playerRepository, playerStatsRepository);
-      InningService secondInning = new InningService(playerRepository, playerStatsRepository);
-      firstInning.inningsStart(battingTeam, bowlingTeam, 1000, OVERS);
-      secondInning.inningsStart(bowlingTeam, battingTeam, firstInning.getTotalRuns() ,OVERS);
-      //Saving data in Scoreboard
-      Scoreboard scoreboard = new Scoreboard("", Format.T20, firstInning.getTotalRuns(), firstInning.getTotalWickets(),
-              secondInning.getTotalRuns(), secondInning.getTotalWickets(), battingTeam.getId(), bowlingTeam.getId(),
+      Scoreboard scoreboard = new Scoreboard("", Format.T20, 0, 0,
+              0, 0, battingTeam.getId(), bowlingTeam.getId(),
               new ArrayList<>());
       scoreboardController.addScoreboard(scoreboard);
-      //Saving PlaterStats data in database
-      firstInning.savingPlayerStatsOfCurrentMatch(scoreboard.getId());
-      secondInning.updatingPlayerStatsOfCurrentMatch(scoreboard.getId());
+      String firstInning = inningService.inningsStart(battingTeam, bowlingTeam, 10000, OVERS, scoreboard.getId());
+      scoreboard = scoreboardController.getScoreboard(scoreboard.getId());
+      String secondInning = inningService.inningsStart(bowlingTeam, battingTeam, scoreboard.getFirstInningTotalRuns(),
+              OVERS, scoreboard.getId());
       scoreboardController.updateScoreboard(scoreboard.getId());
-      firstInning.updatingPlayerOverallStats();
-      secondInning.updatingPlayerOverallStats();
       return "done";
    }
 

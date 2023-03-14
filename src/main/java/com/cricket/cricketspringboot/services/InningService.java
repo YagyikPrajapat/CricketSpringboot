@@ -3,9 +3,11 @@ package com.cricket.cricketspringboot.services;
 import com.cricket.cricketspringboot.enums.PlayerType;
 import com.cricket.cricketspringboot.model.Player;
 import com.cricket.cricketspringboot.model.PlayerStats;
+import com.cricket.cricketspringboot.model.Scoreboard;
 import com.cricket.cricketspringboot.model.Team;
 import com.cricket.cricketspringboot.repository.PlayerRepository;
 import com.cricket.cricketspringboot.repository.PlayerStatsRepository;
+import com.cricket.cricketspringboot.repository.ScoreboardRepository;
 import lombok.Getter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -19,13 +21,12 @@ public class InningService {
    private Team bowlingTeam;
    private List<String> batterList;
    private List<String> bowlerList;
+   @Autowired
    private PlayerRepository playerRepository;
+   @Autowired
    private PlayerStatsRepository playerStatsRepository;
    @Autowired
-   public InningService(PlayerRepository playerRepository, PlayerStatsRepository playerStatsRepository){
-      this.playerRepository = playerRepository;
-      this.playerStatsRepository = playerStatsRepository;
-   }
+   private ScoreboardRepository scoreboardRepository;
 
    private HashMap<String, Integer> playerRuns = new HashMap<>();
    private HashMap<String, Integer> ballsThrown = new HashMap<>();
@@ -33,10 +34,11 @@ public class InningService {
    private HashMap<String, Integer> runsGiven = new HashMap<>();
    private HashMap<String, Integer> wicketsTaken = new HashMap<>();
 
-   private int strike = 0, non_strike = 1, next_batsman = 2, bowler = 5;
-   private int totalWickets = 0, totalRuns = 0;
-   public String inningsStart(Team battingTeam1, Team bowlingTeam1, int target, int overs){
+   private int strike , non_strike , next_batsman, bowler ;
+   private int totalWickets, totalRuns ;
+   public String inningsStart(Team battingTeam1, Team bowlingTeam1, int target, int overs, String scoreboardId){
       initialisation(battingTeam1, bowlingTeam1);
+      System.out.println(target + " " + totalRuns);
       for (int i = 0; i < overs; i++) {
          int ball = 0, flag = 0;
          for (int j = 0; j < 6; j++) {
@@ -52,9 +54,18 @@ public class InningService {
          swapPlayers();
          bowler++;
          if (bowler > 10) bowler = 5;
-         System.out.println(" ** over ends **");
+       //  System.out.println(" ** over ends **");
       }
+      boolean isFirstInning = false;
+      if(target == 10000) isFirstInning = true;
+      savingData(scoreboardId, isFirstInning);
       return "";
+   }
+   private void savingData(String scoreboardId, boolean isFirstInning){
+      updatingScoreboard(scoreboardId, isFirstInning);
+      if(isFirstInning) savingPlayerStatsOfCurrentMatch(scoreboardId);
+      else updatingPlayerStatsOfCurrentMatch(scoreboardId);
+      updatingPlayerOverallStats();
    }
 
    private int ballDecision(){
@@ -69,13 +80,13 @@ public class InningService {
 
    private void ballResult(int ball) {
       if (ball == 7) {
-         System.out.print("Wicket ");
+         //System.out.print("Wicket ");
          totalWickets++;
          updateWicketsTaken();
          strike = next_batsman;
          next_batsman++;
       } else {
-         System.out.print(ball + " ");
+        // System.out.print(ball + " ");
          totalRuns += ball;
          updateRunsScoredAndRunsGiven(ball);
          if (ball % 2 != 0) {
@@ -121,7 +132,7 @@ public class InningService {
       else ballsPlayed.put(batterList.get(strike), ballsPlayed.get(batterList.get(strike))+1);
    }
 
-   public void savingPlayerStatsOfCurrentMatch(String scoreboardId){
+   private void savingPlayerStatsOfCurrentMatch(String scoreboardId){
       for(int i=0;i<11;i++){
          Player player = playerRepository.findById(batterList.get(i)).get();
          if(!playerRuns.containsKey(player.getId())) playerRuns.put(player.getId(), 0);
@@ -141,7 +152,7 @@ public class InningService {
          playerStatsRepository.save(bowlingPlayerStats);
       }
    }
-   public void updatingPlayerStatsOfCurrentMatch(String scoreboardId){
+   private void updatingPlayerStatsOfCurrentMatch(String scoreboardId){
       for(int i=0;i<11;i++){
          PlayerStats battingPlayerStats = playerStatsRepository.findByPlayerIdAndScoreboardId(batterList.get(i), scoreboardId);
          PlayerStats bowlingPlayerStats = playerStatsRepository.findByPlayerIdAndScoreboardId(bowlerList.get(i), scoreboardId);
@@ -156,7 +167,20 @@ public class InningService {
       }
    }
 
-   public void updatingPlayerOverallStats(){
+   private void updatingScoreboard(String scoreboardId, boolean isFirstInning){
+      Scoreboard scoreboard = scoreboardRepository.findById(scoreboardId).get();
+      if(isFirstInning == true){
+         scoreboard.setFirstInningTotalRuns(totalRuns);
+         scoreboard.setFirstInningWicketsLoss(totalWickets);
+         scoreboardRepository.save(scoreboard);
+         return;
+      }
+      scoreboard.setSecondInningTotalRuns(totalRuns);
+      scoreboard.setSecondInningWicketsLoss(totalWickets);
+      scoreboardRepository.save(scoreboard);
+   }
+
+   private void updatingPlayerOverallStats(){
       for(int i=0;i<11;i++){
          Player battingPlayer = playerRepository.findById(batterList.get(i)).get();
          battingPlayer.setTotalRuns(battingPlayer.getTotalRuns() + playerRuns.get(battingPlayer.getId()));
@@ -182,13 +206,9 @@ public class InningService {
       this.bowlingTeam = bowlingTeam;
       batterList = battingTeam.getPlayers();
       bowlerList = bowlingTeam.getPlayers();
-   }
-
-   public void results(){
-      System.out.println();
-      for(int i=0;i<11;i++){
-         System.out.println(playerRuns.get(batterList.get(i)) + " -> " + ballsThrown.get(bowlerList.get(i)));
-      }
+      strike=0;
+      non_strike = 1; next_batsman = 2; bowler = 5;
+      totalRuns = 0; totalWickets = 0;
    }
 
 }
